@@ -4,7 +4,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torchvision
-from torchvision.models import ResNet18_Weights, ResNet50_Weights, ResNet101_Weights
+# from torchvision.models import ResNet18_Weights, ResNet50_Weights, ResNet101_Weights
 
 
 
@@ -127,17 +127,18 @@ class EgoVisDis(nn.Module):
                 if self.resnet_type == 'resnet50':
                     self.rgb_net = VisualNet(torchvision.models.resnet50(weights=ResNet50_Weights.DEFAULT), 3, freeze_weights=freeze_resnets)
                 else:
-                    self.rgb_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 3, freeze_weights=freeze_resnets)
+                    # self.rgb_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 3, freeze_weights=freeze_resnets)
+                    self.rgb_net = VisualNet(torchvision.models.resnet18(pretrained=True), 3, freeze_weights=freeze_resnets)
             if use_depth:
                 if self.resnet_type == 'resnet50':
                     self.depth_net = VisualNet(torchvision.models.resnet50(weights=ResNet50_Weights.DEFAULT), 3, freeze_weights=freeze_resnets)
                 else:
-                    self.depth_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 3, freeze_weights=freeze_resnets)
+                    self.depth_net = VisualNet(torchvision.models.resnet18(pretrained=True), 3, freeze_weights=freeze_resnets)
             if use_rgbd:
                 if self.resnet_type == 'resnet50':
                     self.rgbd_net = VisualNet(torchvision.models.resnet50(weights=ResNet50_Weights.DEFAULT), 6, freeze_weights=freeze_resnets)
                 else:
-                    self.rgbd_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 6, freeze_weights=freeze_resnets)
+                    self.rgbd_net = VisualNet(torchvision.models.resnet18(pretrained=True), 6, freeze_weights=freeze_resnets)
             
             concat_size = num_feat_channels * sum([self.use_rgb, self.use_depth, self.use_rgbd])
             self.pooling = nn.AdaptiveAvgPool2d((1, 1))
@@ -242,11 +243,11 @@ class VisDirDis(nn.Module):
         
         if self.use_visual:
             if use_rgb:
-                self.rgb_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 3, freeze_weights=self.freeze_resnets)
+                self.rgb_net = VisualNet(torchvision.models.resnet18(pretrained=True), 3, freeze_weights=self.freeze_resnets)
             if use_depth:
-                self.depth_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 3, freeze_weights=self.freeze_resnets)
+                self.depth_net = VisualNet(torchvision.models.resnet18(pretrained=True), 3, freeze_weights=self.freeze_resnets)
             if use_rgbd:
-                self.rgbd_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 6, freeze_weights=self.freeze_resnets)
+                self.rgbd_net = VisualNet(torchvision.models.resnet18(pretrained=True), 6, freeze_weights=self.freeze_resnets)
             concat_size = 512 * sum([self.use_rgb, self.use_depth, self.use_rgbd])
             self.pooling = nn.AdaptiveAvgPool2d((1, 1))
             if self.mean_pool_visual:
@@ -265,6 +266,8 @@ class VisDirDis(nn.Module):
         layers = []
         for i in range(len(self.layer_sizes) - 1):
             layers.append(nn.Linear(self.layer_sizes[i], self.layer_sizes[i + 1], bias=False))
+            if i == len (self.layer_sizes) - 2:  # Add ReLU activation between layers, but not after the last layer
+                layers.append(nn.Sigmoid())
             if i < len(self.layer_sizes) - 2:  # Add ReLU activation between layers, but not after the last layer
                 if add_preactivation_batchnorm:
                     layers.append(nn.BatchNorm1d(self.layer_sizes[i + 1]))
@@ -301,7 +304,8 @@ class VisDirDis(nn.Module):
         if len(visual_features) != 0:
             visual_embed = concat_visual_features.squeeze(-1).squeeze(-1)
             visual_feat = F.normalize(visual_embed, p=2, dim=1)
-
+        # print(">>>>>>>>>>>visual_feat.shape:", visual_feat.shape)
+        # print(">>>>>>>>>>>>>>>direction_distance_embed.shape:", direction_distance_embed.shape)
         visdirdis_feat = torch.concat([visual_feat, direction_distance_embed], axis=1)
         return self.predictor(visdirdis_feat)
     
@@ -337,11 +341,11 @@ class Resnet101VisDirDis(VisDirDis):
         
         if self.use_visual:
             if use_rgb:
-                self.rgb_net = VisualNet(torchvision.models.resnet101(weights=ResNet101_Weights.DEFAULT), 3, freeze_weights=self.freeze_resnets)
+                self.rgb_net = VisualNet(torchvision.models.torchvision.models.resnet101(pretrained=True), 3, freeze_weights=self.freeze_resnets)
             if use_depth:
-                self.depth_net = VisualNet(torchvision.models.resnet101(weights=ResNet101_Weights.DEFAULT), 3, freeze_weights=self.freeze_resnets)
+                self.depth_net = VisualNet(torchvision.models.torchvision.models.resnet101(pretrained=True), 3, freeze_weights=self.freeze_resnets)
             if use_rgbd:
-                self.rgbd_net = VisualNet(torchvision.models.resnet101(weights=ResNet101_Weights.DEFAULT), 6, freeze_weights=self.freeze_resnets)
+                self.rgbd_net = VisualNet(torchvision.models.torchvision.models.resnet101(pretrained=True), 6, freeze_weights=self.freeze_resnets)
             concat_size = 2048 * sum([self.use_rgb, self.use_depth, self.use_rgbd])
             self.pooling = nn.AdaptiveAvgPool2d((1, 1))
             if self.mean_pool_visual:
@@ -437,11 +441,11 @@ class ANP(nn.Module):
         
         if self.use_visual:
             if use_rgb:
-                self.rgb_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 3)
+                self.rgb_net = VisualNet(torchvision.models.resnet18(pretrained=True), 3)
             if use_depth:
-                self.depth_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 3)
+                self.depth_net = VisualNet(torchvision.models.resnet18(pretrained=True), 3)
             if use_rgbd:
-                self.rgbd_net = VisualNet(torchvision.models.resnet18(weights=ResNet18_Weights.DEFAULT), 4)
+                self.rgbd_net = VisualNet(torchvision.models.resnet18(pretrained=True), 4)
             concat_size = 512 * sum([self.use_rgb, self.use_depth, self.use_rgbd])
             self.pooling = nn.AdaptiveAvgPool2d((1, 1))
             if self.mean_pool_visual:

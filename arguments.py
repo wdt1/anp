@@ -27,7 +27,7 @@ def get_config():
     config['resume_training'] = args.resume if args.resume is not None else config['resume_training']
     config['model']['use_regression'] = args.regression if args.regression is not None else config['model']['use_regression']
     config['chkpt_path'] = args.chkpt_path if args.chkpt_path is not None else config['chkpt_path']
-    config['device'] = f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu"
+    # config['device'] = f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu"
 
     # Now you can access your config parameters as dictionary
     print(json.dumps(config, indent=4))

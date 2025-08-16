@@ -1,5 +1,6 @@
 import os
 import quaternion
+import random
 import habitat_sim.sim
 from scipy.io import wavfile
 import multiprocessing
@@ -24,6 +25,23 @@ from audio_utils import get_decibels
 import argparse
 import logging
 from datetime import datetime
+import torch
+import hashlib
+
+def convert_tensors(obj):
+    """递归将 PyTorch 张量转换为 Python 可序列化类型（列表/标量）"""
+    if isinstance(obj, torch.Tensor):
+        # 如果对象是张量，转为列表（处理 GPU 张量需先转 CPU）
+        return obj.cpu().detach().numpy().tolist()
+    elif isinstance(obj, dict):
+        # 如果是字典，递归处理每个键值对
+        return {k: convert_tensors(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        # 如果是列表，递归处理每个元素
+        return [convert_tensors(v) for v in obj]
+    else:
+        # 其他类型直接返回（如 int、float、str 等）
+        return obj
 
 # 配置日志路径和格式
 log_dir = "/remote-home/ums_wangdantong/anavi/scratch/vdj/ss"  # 自定义日志目录
@@ -153,7 +171,6 @@ def make_sim(settings):
     backend_cfg = habitat_sim.SimulatorConfiguration()
     backend_cfg.scene_id = settings['scene_id']
     backend_cfg.scene_dataset_config_file = settings['scene_dataset_config_file']
-    
     backend_cfg.load_semantic_mesh = True
     backend_cfg.enable_physics = False
     # Add agents
@@ -209,13 +226,30 @@ def grid_search_for_circle_centers(bounds, num_points_per_axis=10):
 
 
 def create_data(settings):
+    
     receivers = []
     sources = []
     metadata = {}
     gt = {}
+    # # seed = hash(settings['scene_name']) + shard_index
+    # # 生成安全的种子
+    # scene_hash = hash(settings['scene_name']) & 0xFFFFFFFF  # 转换为无符号32位整数
+    # seed = (shard_index << 32) | scene_hash  # 组合分片索引和场景哈希
+    # seed = seed % (2**32)  # 确保在32位范围内
+    # random.seed(seed)
+    # np.random.seed(seed)
+    # sim.seed(seed)
+
+    # scene_hash = hash(settings['scene_name']) & 0xFFFFFFFF
+    # seed = (settings.get('shard_index', 0) << 32) | scene_hash  # 兼容未传递分片索引的情况
+    # seed = seed % (2**32)
+    # random.seed(seed)
+    # np.random.seed(seed)
+    # torch.manual_seed(seed)
 
     angles = get_res_angles_for(fov=settings['visual_sensor_config']['fov'])[1]
     sim = make_sim(settings)
+    # sim.pathfinder.seed(seed) 
     grid_occupancy = sim.pathfinder.get_topdown_view(meters_per_pixel=0.01, height=0.0)
     plt.clf()
     plt.matshow(grid_occupancy)
@@ -281,8 +315,20 @@ def create_data(settings):
         # one_hot_semantic = process_seg_mask(semantic)
         # combined_obs = np.concatenate([rgb, depth, semantic], axis=-1)
         
-        plt.imsave(os.path.join(settings['scene_obs_dir'], f'{i}-rgb.png'), rgb)
-        plt.imsave(os.path.join(settings['scene_obs_dir'], f'{i}-depth.png'), depth)
+        # plt.imsave(os.path.join(settings['scene_obs_dir'], f'{i}-rgb.png'), rgb)
+        # plt.imsave(os.path.join(settings['scene_obs_dir'], f'{i}-depth.png'), depth)
+        output_rgb_path = os.path.join(settings['scene_obs_dir'], f'{i}-rgb.png')
+        output_depth_path = os.path.join(settings['scene_obs_dir'], f'{i}-depth.png')
+
+        if not os.path.exists(output_rgb_path):
+            plt.imsave(output_rgb_path, rgb)
+        else:
+            logger.info(f"文件 {output_rgb_path} 已存在，跳过生成.")
+
+        if not os.path.exists(output_depth_path):
+            plt.imsave(output_depth_path, depth)
+        else:
+            logger.info(f"文件 {output_depth_path} 已存在，跳过生成.")
         # # OR save a matshow of the depth
         # plt.clf()
         # plt.matshow(depth)
@@ -299,24 +345,40 @@ def create_data(settings):
     for i, (receiver, source) in enumerate(zip(receivers, sources)):
         ir = acoustic_render(sim, receiver, source, agent_id=0)
         max_dbs.append(get_decibels(ir))
-        wavfile.write(os.path.join(settings['scene_obs_dir'], f'{i}-ir_receiver.wav'), settings['sampling_rate'], ir[0])
+        # wavfile.write(os.path.join(settings['scene_obs_dir'], f'{i}-ir_receiver.wav'), settings['sampling_rate'], ir[0])
+        output_audio_path = os.path.join(settings['scene_obs_dir'], f'{i}-ir_receiver.wav')
+        if not os.path.exists(output_audio_path):
+            wavfile.write(output_audio_path, settings['sampling_rate'], ir[0])
+        else:
+            logger.info(f"音频文件 {output_audio_path} 已存在，跳过生成.")
         # np.save(os.path.join(settings['scene_obs_dir'], f'{i}-ir.npy'), ir)
         # ir_receiver_obs.append(ir)
-    sim.close()
+    if 'sim' in locals() and sim is not None:
+        sim.close()
 
 
 
     # Saving stuff
-    with open(os.path.join(settings['scene_obs_dir'], 'gt.json'), 'w') as fo:
-        json.dump(gt, fo)
+    # with open(os.path.join(settings['scene_obs_dir'], 'gt.json'), 'w') as fo:
+    #     json.dump(gt, fo)
+    gt_path = os.path.join(settings['scene_obs_dir'], 'gt.json')
+    if not os.path.exists(gt_path):
+        with open(gt_path, 'w') as fo:
+            json.dump(gt, fo)
 
-    with open(os.path.join(settings['scene_obs_dir'], 'metadata.json'), 'w') as fo:
-        json.dump(metadata, fo)
-
-    # # Saving preprocessing later for training data 
-    # max_db_dict = {f"{settings['split']}-{settings['scene_name']}-{idx}": max_dbs[idx] for idx in range(len(max_dbs))}
-    # with open(os.path.join(settings['scene_obs_dir'], 'max_db.json'), 'w') as fo:
-    #     json.dump(max_db_dict, fo)
+    # with open(os.path.join(settings['scene_obs_dir'], 'metadata.json'), 'w') as fo:
+    #     json.dump(metadata, fo)
+    metadata_path = os.path.join(settings['scene_obs_dir'], 'metadata.json')
+    if not os.path.exists(metadata_path):
+        with open(metadata_path, 'w') as fo:
+            json.dump(metadata, fo)
+    else:
+        logger.info(f"文件 {metadata_path} 已存在，跳过生成。")
+    # Saving preprocessing later for training data 
+    max_db_dict = {f"{settings['split']}-{settings['scene_name']}-{idx}": max_dbs[idx] for idx in range(len(max_dbs))}
+    max_db_dict_serializable = convert_tensors(max_db_dict)
+    with open(os.path.join(settings['scene_obs_dir'], 'max_db.json'), 'w') as fo:
+        json.dump(max_db_dict_serializable, fo)
 
     # np.savez(
     #     os.path.join(settings['scene_obs_dir'], f'{i}-combined.npz'), 
@@ -340,9 +402,16 @@ def create_data(settings):
 
 
 def process_scene_split(args):
+    
     scene, split, data_dir, save_dir_path = args
-    settings = make_config_settings(scene_name=scene, split=split, data_dir=data_dir, save_dir_path=save_dir_path)
+    settings = make_config_settings(scene_name=scene, split=split, 
+                                  data_dir=data_dir, save_dir_path=save_dir_path)
     create_data(settings)
+    
+ 
+    # settings = make_config_settings(scene_name=scene, split=split, data_dir=data_dir, save_dir_path=save_dir_path)
+    # # settings['shard_index'] = shard_index
+    # create_data(settings)
 
 
 def get_safe_cpu_count(use_cpus=None, leave_cpus=8):
@@ -378,8 +447,8 @@ def main(args):
     first_run = True
     threshold_size = 0  # if 0 then all folders to be generated; 4096 if some folder contain only map. 
     args_list = []
-    for split in ['train']: # , 'val', 'test']:
-        if not first_run:
+    for split in ['test']: # , train 'val', 'test']:
+        if not first_run:                                                                        
             files_under_threshold = get_files_under_threshold(save_dir_path + '/' + split, threshold_size)
             print(files_under_threshold)
         for scene in SCENE_SPLITS[split]:
@@ -390,25 +459,49 @@ def main(args):
                 args_list.append((scene, split, data_dir, save_dir_path))
     print('Args_list', args_list)
     
-    with multiprocessing.Pool(processes=get_safe_cpu_count(use_cpus=args.use_cpus)) as pool:
-        pool.map(process_scene_split, args_list)
+    # with multiprocessing.Pool(processes=get_safe_cpu_count(use_cpus=args.use_cpus)) as pool:
+    #     pool.map(process_scene_split, args_list)
+    batch_size = 5  # 每批次处理5个场景
+    for i in range(0, len(args_list), batch_size):
+        batch = args_list[i:i + batch_size]
+        with multiprocessing.Pool(processes=get_safe_cpu_count(use_cpus=args.use_cpus)) as pool:
+            pool.map(process_scene_split, batch)
+        pool.close()  # 显式关闭进程池
+        pool.join()   # 等待进程结束
 
 
 if __name__=="__main__":
+
     parser = argparse.ArgumentParser(description='Process command line arguments.')
-    parser.add_argument('--shard_index', type=int, default=0, help='Index of the shard')
+    parser.add_argument('--shard_index', type=int, default=100, help='Index of the shard')
     parser.add_argument('--data_dir', type=str, default='/remote-home/ums_wangdantong/data/mp3d', help='Path to the data directory')
     parser.add_argument('--save_dir', type=str, default='/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/', help='Path to the save directory')
     # parser.add_argument('--num_samples', type=int, default=10, help='Number of samples per scene')
-    parser.add_argument('--num_samples', type=int, default=10, help='Number of samples per scene')
+    parser.add_argument('--num_samples', type=int, default=500, help='Number of samples per scene')
     parser.add_argument('--use_cpus', type=int, default=None, help='Number of CPU cores to use')
-    args = parser.parse_args()
-
-    start_time = time.time()
-    main(args)
-    end_time = time.time()
-
-    execution_time = end_time - start_time
-    # print(f"Execution time: {execution_time} seconds")
-    logger.info(f'Agent set at {agent.get_state()}')
     
+    # args = parser.parse_args()
+
+    # start_time = time.time()
+    # main(args)
+    # end_time = time.time()
+
+    # execution_time = end_time - start_time
+    # print(f"Execution time: {execution_time} seconds")
+    # # logger.info(f'Agent set at {agent.get_state()}')
+     # 循环处理分片索引从10到70
+    for shard_index in range(100, 101):
+        # 覆盖参数以生成100个样本
+        args = argparse.Namespace(
+            shard_index=shard_index,
+            data_dir='/remote-home/ums_wangdantong/data/mp3d',
+            save_dir='/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/',
+            num_samples=500,  # 固定为100个样本
+            use_cpus=None
+        )
+        start_time = time.time()
+        main(args)  # 调用主函数处理当前分片
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"Execution time: {execution_time} seconds")
+        # logger.info(f'Shard {shard_index} processed in {execution_time} seconds')

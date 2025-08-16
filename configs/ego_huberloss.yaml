@@ -1,43 +1,43 @@
 data:
   data_class: 'shard_ego'
-  data_path: /data/anp_data_full-500/  # 
+  data_path: /remote-home/ums_wangdantong/anp_data_full-500/  # 
   eval_batch_size: 64
   train_batch_size: 64
   load_images: true
   shard_folders:
-    - "/data/mp3d_shard_data/anp_shard-10_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-21_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-34_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-11_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-24_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-35_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-12_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-25_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-36_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-13_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-26_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-37_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-27_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-3_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-15_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-28_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-4_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-16_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-29_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-5_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-17_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-2_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-6_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-18_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-30_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-7_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-19_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-32_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-8_samples-100"
-    - "/data/mp3d_shard_data/anp_shard-20_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-10_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-21_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-34_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-11_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-24_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-35_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-12_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-25_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-36_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-13_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-26_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-37_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-27_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-3_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-15_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-28_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-4_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-16_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-29_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-5_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-17_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-2_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-6_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-18_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-30_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-7_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-19_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-32_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-8_samples-10"
+    - "/remote-home/ums_wangdantong/anavi/mp3d_shard-data_10/anp_shard-20_samples-10"
 device: cuda:1
 epochs: 200
-chkpt_dir: "/data/checkpoints/"
+chkpt_dir: "/remote-home/ums_wangdantong/checkpoints/"
 chkpt_path: "shard_ego_mse.pth"
 model:
   classname: EgoVisDis
@@ -68,5 +68,5 @@ patience: 2500
 resume_training: false
 summary_interval: 100
 wandb:
-  dir: /data/wandb
+  dir: /remote-home/ums_wangdantong/anavi/wandb
   project: anavi

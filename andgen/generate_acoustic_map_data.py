@@ -77,7 +77,7 @@ def make_sim(settings):
     return sim
 
 
-def make_config_settings(scene_name="YmJkqBEsHnH", split='train', data_dir="/data/mp3d", save_dir_path='/scratch/vdj/ss/anp_depth-real-10/'):
+def make_config_settings(scene_name="YmJkqBEsHnH", split='train', data_dir="/remote-home/ums_wangdantong/Falcon/data/scene_datasets/mp3d", save_dir_path='/remote-home/ums_wangdantong/scratch/vdj/ss/anp_depth-real-10/'):
     settings = dict(
         scene_name=scene_name,
         scene_id=f"{data_dir}/{scene_name}/{scene_name}.glb", 
@@ -153,8 +153,8 @@ parser.add_argument('--scene_name', type=str, default="YmJkqBEsHnH", help='Name 
 parser.add_argument('--listener_x', type=float, default=None, help='Listener x position coordinates')
 parser.add_argument('--listener_z', type=float, default=None, help='Listener z position coordinates')
 parser.add_argument('--split', type=str, default='train', help='Data split')
-parser.add_argument('--data_dir', type=str, default='/data/mp3d', help='Data directory')
-parser.add_argument('--save_dir_path', type=str, default='/usr1/vdj/ss/map_acoustics', help='Save directory path')
+parser.add_argument('--data_dir', type=str, default='/remote-home/ums_wangdantong/Falcon/data/scene_datasets/mp3d', help='Data directory')
+parser.add_argument('--save_dir_path', type=str, default='/remote-home/ums_wangdantong/vdj/ss/map_acoustics', help='Save directory path')
 parser.add_argument('--cm_per_pixel', type=int, default=25, help='Centimeters per pixel')
 
 args = parser.parse_args()
@@ -183,7 +183,7 @@ listener = sim.pathfinder.get_random_navigable_point() if args.listener_x is Non
 settings['scene_obs_dir'] = os.path.join(settings['scene_obs_dir'], f"listener_at_{round(listener[0]*100)}_{round(listener[2]*100)}")
 os.makedirs(settings['scene_obs_dir'], exist_ok=True)
 print(f"Listener at {settings['scene_obs_dir']}")
-breakpoint()
+# breakpoint()
 
 bounds = sim.pathfinder.get_bounds()
 cm_bounds = dict(xmin=int(bounds[0][0]*100), xmax=int(bounds[1][0]*100),

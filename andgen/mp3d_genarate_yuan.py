@@ -22,20 +22,6 @@ matplotlib.rcParams["figure.dpi"] = 600
 from scene_splits import SCENE_SPLITS
 from audio_utils import get_decibels
 import argparse
-import logging
-from datetime import datetime
-
-# 配置日志路径和格式
-log_dir = "/remote-home/ums_wangdantong/anavi/scratch/vdj/ss"  # 自定义日志目录
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
-
-logging.basicConfig(
-    filename=log_file,
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 def make_config_settings(scene_name="YmJkqBEsHnH", split='train', data_dir="/remote-home/ums_wangdantong/data/mp3d", save_dir_path='/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_depth-real-10/'):
     settings = dict(
@@ -88,13 +74,8 @@ def add_audio_sensor(settings, sim, agent_id):
     audio_sensor_spec = habitat_sim.AudioSensorSpec()
     audio_sensor_spec.uuid = "audio_sensor"
     audio_sensor_spec.enableMaterials = True
-    # audio_sensor_spec.channelLayout.type = habitat_sim.sensor.RLRAudioPropagationChannelLayoutType.Mono
-    # audio_sensor_spec.channelLayout.channelCount = 1
-    # 正确设置 channelLayout：先构造对象，再设定类型与通道数
-    channel_layout = habitat_sim.sensor.RLRAudioPropagationChannelLayout()
-    channel_layout.channelType = habitat_sim.sensor.RLRAudioPropagationChannelLayoutType.Mono
-    channel_layout.channelCount = 1
-    audio_sensor_spec.channelLayout = channel_layout
+    audio_sensor_spec.channelLayout.type = habitat_sim.sensor.RLRAudioPropagationChannelLayoutType.Mono
+    audio_sensor_spec.channelLayout.channelCount = 1
     # audio sensor location set with respect to the agent
     audio_sensor_spec.position = [0.0, 1.5, 0.0]  # audio sensor has a height of 1.5m
     audio_sensor_spec.acousticsConfig.sampleRate = settings['sampling_rate']
@@ -374,7 +355,7 @@ def main(args):
     save_dir_path = os.path.join(
         args.save_dir, f'anp_shard-{shard_index}_samples-{num_samples}'
     )
-    os.makedirs(save_dir_path, exist_ok=True)
+    os.makedirs(save_dir_path)
     first_run = True
     threshold_size = 0  # if 0 then all folders to be generated; 4096 if some folder contain only map. 
     args_list = []
@@ -397,9 +378,8 @@ def main(args):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Process command line arguments.')
     parser.add_argument('--shard_index', type=int, default=0, help='Index of the shard')
-    parser.add_argument('--data_dir', type=str, default='/remote-home/ums_wangdantong/data/mp3d', help='Path to the data directory')
-    parser.add_argument('--save_dir', type=str, default='/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/', help='Path to the save directory')
-    # parser.add_argument('--num_samples', type=int, default=10, help='Number of samples per scene')
+    parser.add_argument('--data_dir', type=str, default='/data/mp3d', help='Path to the data directory')
+    parser.add_argument('--save_dir', type=str, default='/scratch/vdj/ss/', help='Path to the save directory')
     parser.add_argument('--num_samples', type=int, default=10, help='Number of samples per scene')
     parser.add_argument('--use_cpus', type=int, default=None, help='Number of CPU cores to use')
     args = parser.parse_args()
@@ -409,6 +389,5 @@ if __name__=="__main__":
     end_time = time.time()
 
     execution_time = end_time - start_time
-    # print(f"Execution time: {execution_time} seconds")
-    logger.info(f'Agent set at {agent.get_state()}')
+    print(f"Execution time: {execution_time} seconds")
     

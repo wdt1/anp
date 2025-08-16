@@ -1,11 +1,11 @@
 data:
-  data_path: /data/vdj/ss/anp_full_data-500/
+  data_path: /remote-home/ums_wangdantong/anp_full_data-500/
   eval_batch_size: 32
   train_batch_size: 64
 device: cuda:1
 epochs: 100
 logging:
-  chkpt_dir: /data/vdj/ss/checkpoints/
+  chkpt_dir: /remote-home/ums_wangdantong/checkpoints/
   chkpt_path: resume_visual_ce_trainer.pth
 model:
   mean_pool_visual: true

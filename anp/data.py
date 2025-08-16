@@ -88,7 +88,7 @@ def to_tensor(v):
         return torch.tensor(v, dtype=torch.float)
 
 
-def make_data_config(split='train', dir_path = '/data/vdj/ss/anp_data_full-10/', load_images=True):
+def make_data_config(split='train', dir_path = '/remote-home/ums_wangdantong/scratch/vdj/anp_data_full-10/', load_images=True):
     metadata = {}
     data_path = os.path.join(dir_path, split)
     for scene in SCENE_SPLITS[split]:
@@ -330,6 +330,21 @@ class AudioDecibelDatasetv3(Dataset):
 
     def __getitem__(self, index):
         shard, split, scene, idx = self.data_indices[index].split('.')
+        # print("available shards:", self.target_df.index.get_level_values(0).unique())
+        # print("available splits:", self.target_df.index.get_level_values(1).unique())
+        # print("available scenes:", self.target_df.index.get_level_values(2).unique())
+        # print("available indices:", self.target_df.index.get_level_values(3).unique())
+        # print("your query:", (shard.split('/')[-1], split, scene, int(idx)))
+        # 打印调试信息
+        # print(f"Trying to access key: {key}")
+        # print(f"Available index levels: {self.target_df.index.names}")
+    
+        # if key not in self.target_df.index:
+        #     print("❌ Key not found in target_df.index!")
+        #     print("💡 Sample of available keys:")
+        #     print(list(self.target_df.index[:5]))  # 打印前5个
+        #     raise KeyError(f"Key {key} missing in target_df index")
+    
         receiver_audio = self.target_df.loc[(shard.split('/')[-1], split, scene, int(idx)), 'max_db']
         direction_distance = np.array(self.metadata[f'{shard}.{split}.{scene}.{idx}'], dtype=np.float32)
         direction_distance[0] = direction_distance[0] / 360.0  # make the magnitudes similar to the direction for learning
@@ -390,20 +405,20 @@ if __name__=="__main__":
     # breakpoint()
     # print("Done")
     config = make_consolidated_data_config_v3([
-        '/scratch/vdj/ss/anp_shard-30_samples-100',
-        '/scratch/vdj/ss/anp_shard-2_samples-100',
-        '/scratch/vdj/ss/anp_shard-27_samples-100',
-        '/scratch/vdj/ss/anp_shard-7_samples-100',
-        '/scratch/vdj/ss/anp_shard-24_samples-100',
-        '/scratch/vdj/ss/anp_shard-8_samples-100',
-        '/scratch/vdj/ss/anp_shard-3_samples-100',
-        '/scratch/vdj/ss/anp_shard-6_samples-100',
-        '/scratch/vdj/ss/anp_shard-14_samples-100',
-        '/scratch/vdj/ss/anp_shard-16_samples-100',
-        '/scratch/vdj/ss/anp_shard-26_samples-100',
-        '/scratch/vdj/ss/anp_shard-32_samples-100',
-        '/scratch/vdj/ss/anp_shard-17_samples-100',
-        '/scratch/vdj/ss/anp_shard-15_samples-100'
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-30_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-2_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-27_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-7_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-24_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-8_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-3_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-6_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-14_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-16_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-26_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-32_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-17_samples-100',
+        '/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-15_samples-100'
     ], split='train', load_images=True)
 
     dataset = AudioDecibelDatasetv3(config)

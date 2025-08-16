@@ -78,7 +78,7 @@ def make_sim(settings):
     return sim
 
 
-def make_config_settings(scene_name="YmJkqBEsHnH", split='train', data_dir="/data/mp3d", save_dir_path='/scratch/vdj/ss/anp_depth-real-10/'):
+def make_config_settings(scene_name="YmJkqBEsHnH", split='train', data_dir="/remote-home/ums_wangdantong/Falcon/data/scene_datasets/mp3d", save_dir_path='/scratch/vdj/ss/anp_depth-real-10/'):
     settings = dict(
         scene_name=scene_name,
         scene_id=f"{data_dir}/{scene_name}/{scene_name}.glb", 
@@ -165,8 +165,8 @@ def grid_search_for_circle_centers(bounds, num_points_per_axis=10):
 parser = argparse.ArgumentParser(description='Generate Acoustic Map Data')
 parser.add_argument('--scene_name', type=str, default="YmJkqBEsHnH", help='Name of the scene')
 parser.add_argument('--split', type=str, default='train', help='Data split')
-parser.add_argument('--data_dir', type=str, default='/data/mp3d', help='Data directory')
-parser.add_argument('--save_dir_path', type=str, default='/usr1/vdj/ss/map_acoustics', help='Save directory path')
+parser.add_argument('--data_dir', type=str, default='/remote-home/ums_wangdantong/Falcon/data/scene_datasets/mp3d', help='Data directory')
+parser.add_argument('--save_dir_path', type=str, default='/remote-home/ums_wangdantong/vdj/ss/map_acoustics', help='Save directory path')
 parser.add_argument('--cm_per_pixel', type=int, default=25, help='Centimeters per pixel')
 parser.add_argument('--robot', default=None, help='List of x, y and z coordinates in cm')
 args = parser.parse_args()

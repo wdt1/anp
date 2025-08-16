@@ -2,6 +2,11 @@ from abc import ABC, abstractmethod
 import os
 import sys
 import torch
+
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
+
 import torch.nn as nn
 import torch.optim as optim
 import wandb
@@ -28,9 +33,9 @@ class Trainer(ABC):
         self.config = config
         self.eps_checklist = [0.001, 0.007, 0.009, 0.01, 0.02, 0.025, 0.03, 0.07, 0.1, 0.3, 0.5, 1.0]
 
-        self.device = self.config["device"]
+        # self.device = self.config["device"]
         self.train_loader, self.val_loader, self.test_loader = make_dataloaders(**self.config['data'])
-        self.model = model_class(**self.config['model']).to(self.device)
+        self.model = model_class(**self.config['model'])#.to(self.device)
         if len(list(self.model.parameters())):
             self.optimizer = optimizer_class(self.model.parameters(), lr=self.config['optim']['lr'])
             self.scheduler = scheduler_class(self.optimizer, **self.config['scheduler'])
@@ -270,11 +275,13 @@ class Trainer(ABC):
 
 
 class TrainerCE(Trainer):
-    def __init__(self, config, model_class, optimizer_class=optim.AdamW, criterion=nn.CrossEntropyLoss(), scheduler_class=optim.lr_scheduler.StepLR):
+    def __init__(self, rank, world_size, config, model_class, optimizer_class=optim.AdamW, criterion=nn.CrossEntropyLoss(), scheduler_class=optim.lr_scheduler.StepLR):
         assert config['model']['use_regression'] == False, "Model must be a classification model"
         super().__init__(config, model_class, optimizer_class, criterion, scheduler_class)
         self.label_range = config['model']['label_range']
         self.num_bins = config['model']['num_bins']
+        self.rank=rank
+        self.world_size=world_size
 
     def get_bulk_eps_acc(self, true_arr, binned_pred_arr):
         
@@ -300,19 +307,23 @@ class TrainerCE(Trainer):
     def plot_labels_pred_wrt_distance(self, dataloader, step):
         """Runs on forward pass on GPU then plotting on CPU"""
         model = self.model
-        device = self.device
+        # device = self.device
 
         true, pred, dist = [], [], []
         model.eval()
-        model = model.to(device)
+        dist.init_process_group("nccl", rank=self.rank, world_size=self.world_size)
+        torch.cuda.set_device(self.rank)
+        model = model.to(self.rank)
+        model = DDP(model, device_ids=[self.rank])
+        # model = model.to(device)
         for batch in tqdm(dataloader):
-            batch = {k: v.to(device) for k, v in batch.items()}
+            batch = {k: v.to(self.rank) for k, v in batch.items()}
             out = model(batch)
             predicted = self.get_predictions(out)
             dist.append(batch['direction_distance'].cpu().detach().numpy()[..., 1])
             true.append(batch['noise'].cpu().detach().numpy())
             pred.append(predicted.cpu().detach().numpy())
-            
+        dist.destroy_process_group()    
         dist_arr = np.concatenate(dist)
         pred_arr = np.concatenate(pred)
         true_arr = np.concatenate(true)
@@ -344,10 +355,10 @@ class TrainerCE(Trainer):
         logit_values = []
         true_values = []
         for i, data in enumerate(train_loader):
-            inputs = {key: data[key].to(self.device) for key in data if key != 'noise'}
-            labels = data['noise'].float().to(self.device)
+            inputs = {key: data[key].to(self.rank) for key in data if key != 'noise'}
+            labels = data['noise'].float().to(self.rank)
             # labels = torch.round(torch.clamp(labels, 0, self.config['model']['num_bins']-1)).long().squeeze()
-            target = convert_to_bins(labels, self.label_range, self.num_bins, self.device).squeeze()
+            target = convert_to_bins(labels, self.label_range, self.num_bins, self.rank).squeeze()
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
             assert outputs.shape[-1] == self.num_bins, f"Output shape: {outputs.shape} does not match num_bins: {self.num_bins}"
@@ -387,10 +398,10 @@ class TrainerCE(Trainer):
         running_val_loss = 0.0
         with torch.no_grad():
             for batch in val_loader:
-                inputs = {key: batch[key].to(self.device) for key in batch if key != 'noise'}
-                labels = batch['noise'].float().to(self.device)
+                inputs = {key: batch[key].to(self.rank) for key in batch if key != 'noise'}
+                labels = batch['noise'].float().to(self.rank)
                 # labels = torch.round(torch.clamp(labels, 0, self.config['model']['num_bins']-1)).long().squeeze()
-                target = convert_to_bins(labels, self.label_range, self.num_bins, self.device).squeeze()
+                target = convert_to_bins(labels, self.label_range, self.num_bins, self.rank).squeeze()
                 outputs = model(inputs)
                 val_loss = criterion(outputs, target)
                 running_val_loss += val_loss.item()
@@ -420,10 +431,10 @@ class TrainerCE(Trainer):
         true_values = []
         with torch.no_grad():
             for batch in test_loader:
-                inputs = {key: batch[key].to(self.device) for key in batch if key != 'noise'}
-                labels = batch['noise'].float().to(self.device)
+                inputs = {key: batch[key].to(self.rank) for key in batch if key != 'noise'}
+                labels = batch['noise'].float().to(self.rank)
                 # labels = torch.round(torch.clamp(labels, 0, self.config['model']['num_bins']-1)).long().squeeze()
-                target = convert_to_bins(labels, self.label_range, self.num_bins, self.device).squeeze()
+                target = convert_to_bins(labels, self.label_range, self.num_bins, self.rank).squeeze()
                 outputs = model(inputs)
                 test_loss = criterion(outputs, target)
                 running_test_loss += test_loss.item()
@@ -444,10 +455,12 @@ class TrainerCE(Trainer):
 
 
 class TrainerMSE(Trainer):
-    def __init__(self, config, model_class, optimizer_class=optim.AdamW, criterion=nn.MSELoss(), scheduler_class=optim.lr_scheduler.StepLR, epsilon=10**(-2)):
+    def __init__(self, rank, world_size, config, model_class, optimizer_class=optim.AdamW, criterion=nn.MSELoss(), scheduler_class=optim.lr_scheduler.StepLR, epsilon=10**(-2)):
         assert config['model']['use_regression'] == True, "Model must be a regression model"
         self.epsilon = epsilon
         super().__init__(config, model_class, optimizer_class, criterion, scheduler_class)
+        self.rank=rank
+        self.world_size=world_size
 
     def get_bulk_eps_acc(self, normalized_true_arr, normalized_pred_arr):
         eps_acc = {}
@@ -467,7 +480,7 @@ class TrainerMSE(Trainer):
         v = ((labels - labels.mean())**2).sum().item()
         return 1 - u/v
 
-    def get_accuracy(self, predicted, labels, epsilon=0.1): # 1/128):
+    def get_accuracy(self, predicted, labels, epsilon=1/128): # 0.001):
         """
         Epsilon thresholded on accuracy 
         EPSILON can be 0 to 1.0
@@ -480,18 +493,22 @@ class TrainerMSE(Trainer):
             
     def plot_labels_pred_wrt_distance(self, dataloader, step):
         model = self.model
-        device = self.device
+        # device = self.device
 
         true, pred, dist = [], [], []
         model.eval()
-        model = model.to(device)
+        dist.init_process_group("nccl", rank=self.rank, world_size=self.world_size)
+        torch.cuda.set_device(self.rank)
+        model = model.to(self.rank)
+        model = DDP(model, device_ids=[self.rank])
+        # model = model.to(device)
         for batch in dataloader:
-            batch = {k: v.to(device) for k, v in batch.items()}
+            batch = {k: v.to(rank) for k, v in batch.items()}
             out = model(batch)
             dist.append(batch['direction_distance'].cpu().detach().numpy()[..., 1])
             true.append(batch['noise'].cpu().detach().numpy())
             pred.append(out.cpu().detach().numpy())
-            
+        dist.destroy_process_group()      
         dist_arr = np.concatenate(dist)
         true_arr = np.concatenate(true)
         pred_arr = np.concatenate(pred)
@@ -513,16 +530,17 @@ class TrainerMSE(Trainer):
     def train_epoch(self, epoch):
         criterion = self.criterion
         train_loader = self.train_loader
-        device = self.device
+        # device = self.device
 
         self.model.train()
         running_train_loss = 0.0
         pred_values = []
         true_values = []
         for i, data in enumerate(train_loader):
-            inputs = {key: data[key].to(device) for key in data if key != 'noise'}
-            labels = data['noise'].float().to(device)
+            inputs = {key: data[key].to(self.rank) for key in data if key != 'noise'}
+            labels = data['noise'].float().to(self.rank)
             labels = torch.clamp(labels, 0, 128) / 128.0
+            print(inputs.device, labels.device)
             # labels = torch.clamp(labels, 0, 128)
             self.optimizer.zero_grad()
             outputs = self.model(inputs)
@@ -563,7 +581,7 @@ class TrainerMSE(Trainer):
         model = self.model
         criterion = self.criterion
         val_loader = self.val_loader
-        device = self.device
+        # device = self.device
         
         model.eval()
         running_val_loss = 0.0
@@ -571,8 +589,8 @@ class TrainerMSE(Trainer):
         true_values = []
         with torch.no_grad():
             for data in val_loader:
-                inputs = {key: data[key].to(device) for key in data if key != 'noise'}
-                labels = data['noise'].float().to(device)
+                inputs = {key: data[key].to(self.rank) for key in data if key != 'noise'}
+                labels = data['noise'].float().to(self.rank)
                 labels = torch.clamp(labels, 0, 128) / 128.0
                 outputs = model(inputs)
                 val_loss = criterion(outputs, labels)
@@ -601,7 +619,7 @@ class TrainerMSE(Trainer):
         model = self.model
         criterion = self.criterion
         test_loader = self.test_loader if data_loader is None else data_loader
-        device = self.device
+        # device = self.device
 
         model.eval()
         running_test_loss = 0.0
@@ -610,8 +628,8 @@ class TrainerMSE(Trainer):
 
         with torch.no_grad():
             for data in test_loader:
-                inputs = {key: data[key].to(device) for key in data if key != 'noise'}
-                labels = data['noise'].float().to(device)
+                inputs = {key: data[key].to(self.rank) for key in data if key != 'noise'}
+                labels = data['noise'].float().to(self.rank)
                 labels = torch.clamp(labels, 0, 128) / 128.0
                 outputs = model(inputs)
                 test_loss = criterion(outputs, labels)
@@ -640,12 +658,12 @@ class TrainerMSE(Trainer):
 if __name__=="__main__":
     # Config
     config = dict(
-        device='cuda:1' if torch.cuda.is_available() else 'cpu',
+        # device='cuda:0,1,2' if torch.cuda.is_available() else 'cpu',
         wandb={
             'project': 'anavi',
             'dir': '/scratch/vdj/wandb'
         },
-        chkpt_dir='/data/vdj/ss/checkpoints/',
+        chkpt_dir='/data/vdj/ss/checkpoints/checkpoints/',
         chkpt_path='tmp.pth',
         data={
             'data_path': '/data/vdj/ss/anp_data_full-500/',
@@ -662,7 +680,7 @@ if __name__=="__main__":
         ),
         optim=dict(lr=0.01),
         logging=dict(
-            chkpt_dir='/data/vdj/ss/checkpoints/', 
+            chkpt_dir='/data/vdj/ss/checkpoints/checkpoints/', 
             chkpt_path="resume_visual_ce_trainer.pth"
         ),
         epochs=100, patience=25, summary_interval=100,

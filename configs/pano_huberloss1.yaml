@@ -1,8 +1,9 @@
 data:
   data_class: 'shard_pano'
   data_path: /remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-100_samples-500/  # 
-  eval_batch_size: 64
-  train_batch_size: 64
+  # data_path: /remote-home/ums_wangdantong/anp_data_full-500/
+  eval_batch_size: 4
+  train_batch_size: 4
   load_images: True
   shard_folders:
     - "/remote-home/ums_wangdantong/anavi/scratch/vdj/ss/anp_shard-10_samples-100"
@@ -59,8 +60,6 @@ data:
 device: cuda:1
 epochs: 100
 chkpt_dir: "/remote-home/ums_wangdantong/checkpoints/"
-# ========== 关键修改 1：更新预训练模型路径 ==========
-# load_path: "/remote-home/ums_wangdantong/checkpoints/latest-shard_pano_mse_None.pth"  # 改为完整路径
 chkpt_path: "shard_pano_mse.pth"
 model:
   classname: VisDirDis
@@ -81,7 +80,7 @@ model:
   use_rgb: true
   use_rgbd: false
 optim:
-  lr: 0.01
+  lr: 0.001
 scheduler:
   step_size: 2000
   gamma: 0.995
@@ -94,7 +93,3 @@ summary_interval: 100
 wandb:
   dir: /remote-home/ums_wangdantong/anavi/vdj/ss/wandb
   project: anavi
-  # id: "ad35hgt8"
-  # resume: "must" 
-  # run_name: "resume_training" 
-  # prev_wandb_run_name: "None"
